@@ -1,26 +1,6 @@
 import _Vue from 'vue'
 import Router, { Route } from 'vue-router'
 
-
-function watchRouterReplace(router: Router) {
-    const state = { replacing: true }
-    const replaceFn = router.replace.bind(router)
-    router.replace = <any>((loc: any, onComplete: any, onAbort: any) => {
-        state.replacing = true
-        if (onComplete || onAbort) {
-            return replaceFn(loc, onComplete, (err) => {
-                state.replacing = false
-                onAbort && onAbort(err)
-            })
-        }
-        return replaceFn(loc).catch(err => {
-            state.replacing = false
-            return Promise.reject(err)
-        })
-    })
-    return state
-}
-
 const defaultSeqKey = 's~'
 function makeSeq() {
     return Date.now().toString(16)
@@ -51,11 +31,17 @@ export default function install(Vue: typeof _Vue, options?: Options) {
     const seqKey = options.seqKey || defaultSeqKey
 
     const router = options.router
-    const state = watchRouterReplace(router)
     const stack = Vue.observable<{ items: StackItem[] }>({ items: [] })
 
     Object.defineProperty(Vue.prototype, '$routerStack', {
         get() { return stack }
+    })
+
+    let replacing = true
+    const replaceFn = router.replace.bind(router)
+    router.replace = <any>((loc: any, onComplete: any, onAbort: any) => {
+        replacing = true
+        return replaceFn(loc, onComplete, onAbort)
     })
 
     router.beforeEach((to, from, next) => {
@@ -68,7 +54,7 @@ export default function install(Vue: typeof _Vue, options?: Options) {
             ...to,
             name: to.name || undefined,
             query,
-            replace: state.replacing
+            replace: replacing
         })
     })
     router.afterEach((to, from) => {
@@ -77,7 +63,7 @@ export default function install(Vue: typeof _Vue, options?: Options) {
         const i = stack.items.findIndex(r => r.seq >= seq)
         if (i >= 0) {
             stack.items.splice(i)
-        } else if (state.replacing) {
+        } else if (replacing) {
             stack.items.pop()
         }
         stack.items.push({
@@ -86,7 +72,7 @@ export default function install(Vue: typeof _Vue, options?: Options) {
         })
 
         // 
-        state.replacing = false
+        replacing = false
     })
 }
 
