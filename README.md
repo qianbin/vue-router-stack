@@ -4,13 +4,13 @@ A Vue plugin provides router stack. It helps SPA/mobile app easily manage page n
 
 # Installation
 
-```
+```sh
 npm install vue-router-stack
 ```
 
 initialize the plugin
 
-```
+```javascript
 import VueRouterStack from 'vue-router-stack'
 
 Vue.use(VueRouterStack, {
@@ -21,15 +21,15 @@ Vue.use(VueRouterStack, {
 
 now, the router stack can be visited like:
 
-```
+```javascript
 this.$routerStack.items
 ```
 
 # Typical use case
 
-defines routes with the dummy page, but put working pages in meta:
+defines routes with the dummy page, but has working pages in meta:
 
-```
+```javascript
 const DummyPage = Vue.extend({
     name: 'DummyPage',
     render: c => c('div')
@@ -38,7 +38,7 @@ const DummyPage = Vue.extend({
 const routers = [
     {
         path: '/',
-        component: DummyPage
+        component: DummyPage,
         meta: {
             component : IndexPage
         }
@@ -54,7 +54,10 @@ const routers = [
 ```
 
 then working pages stack can be rendered as:
-```
-<component v-for="item in $routerStack.items" :key="item.fullPath" :is="item.meta.component">
-</component>
+```vue
+<component
+  v-for="item in $routerStack.items"
+  :key="item.fullPath"
+  :is="item.meta.component"
+/>
 ```
