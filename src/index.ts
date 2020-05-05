@@ -34,10 +34,14 @@ export interface Stack {
 }
 
 function getScopedView(instance: Vue, route: Route) {
-    for (let i = 0; i < route.matched.length; i++) {
-        if (route.matched[i].instances.default === instance) {
-            return route.matched[i + 1]
+    while (instance) {
+        for (let i = 0; i < route.matched.length; i++) {
+            if (route.matched[i].instances.default === instance) {
+                return route.matched[i + 1]
+            }
         }
+        // allow super parent as scope instance
+        instance = instance.$parent
     }
 }
 
