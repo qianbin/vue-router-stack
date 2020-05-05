@@ -63,8 +63,7 @@ export default function install(Vue: typeof _Vue, options?: Options) {
                             ...e,
                             get view() { return view! },
                             get component() {
-                                // async component not supported
-                                return view?.components.default as Vue.Component
+                                return (view ? view.components.default : undefined) as Vue.Component
                             }
                         }
                     }).filter(e => !!e.view)
