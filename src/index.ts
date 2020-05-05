@@ -1,5 +1,5 @@
 import _Vue from 'vue'
-import Router, { Route } from 'vue-router'
+import Router, { Route, RouteRecord } from 'vue-router'
 
 const defaultSeqKey = 's~'
 function makeSeq() {
@@ -19,8 +19,26 @@ export type Options = {
     seqKey?: string
 }
 
-export interface StackItem extends Route {
+export interface Entry extends Route {
     seq: number
+}
+
+export interface ScopedEntry extends Entry {
+    view: RouteRecord
+    component: Vue.Component
+}
+
+export interface Stack {
+    full: Entry[]
+    scoped: ScopedEntry[]
+}
+
+function getScopedView(instance: Vue, route: Route) {
+    for (let i = 0; i < route.matched.length; i++) {
+        if (route.matched[i].instances.default === instance) {
+            return route.matched[i + 1]
+        }
+    }
 }
 
 export default function install(Vue: typeof _Vue, options?: Options) {
@@ -31,10 +49,28 @@ export default function install(Vue: typeof _Vue, options?: Options) {
     const seqKey = options.seqKey || defaultSeqKey
 
     const router = options.router
-    const stack = Vue.observable<{ items: StackItem[] }>({ items: [] })
+    const stack = Vue.observable<{ entries: Entry[] }>({ entries: [] })
 
-    Object.defineProperty(Vue.prototype, '$routerStack', {
-        get() { return stack }
+    Object.defineProperty(Vue.prototype, '$stack', {
+        get(): Stack {
+            const instance = this
+            return {
+                get full() { return stack.entries },
+                get scoped() {
+                    return stack.entries.map<ScopedEntry>(e => {
+                        const view = getScopedView(instance, e)
+                        return {
+                            ...e,
+                            get view() { return view! },
+                            get component() {
+                                // async component not supported
+                                return view?.components.default as Vue.Component
+                            }
+                        }
+                    }).filter(e => !!e.view)
+                }
+            }
+        }
     })
 
     let replacing = true
@@ -60,13 +96,13 @@ export default function install(Vue: typeof _Vue, options?: Options) {
     router.afterEach((to, from) => {
         const seq = decodeSeq(to.query[seqKey] as string)
 
-        const i = stack.items.findIndex(r => r.seq >= seq)
+        const i = stack.entries.findIndex(e => e.seq >= seq)
         if (i >= 0) {
-            stack.items.splice(i)
+            stack.entries.splice(i)
         } else if (replacing) {
-            stack.items.pop()
+            stack.entries.pop()
         }
-        stack.items.push({
+        stack.entries.push({
             ...to,
             seq
         })
@@ -78,8 +114,6 @@ export default function install(Vue: typeof _Vue, options?: Options) {
 
 declare module 'vue/types/vue' {
     interface Vue {
-        $routerStack: {
-            items: StackItem[]
-        }
+        $stack: Stack
     }
 }

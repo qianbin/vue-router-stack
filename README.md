@@ -19,45 +19,42 @@ Vue.use(VueRouterStack, {
 })
 ```
 
-now, the router stack can be visited like:
+now, the full router stack can be visited like:
 
 ```javascript
-this.$routerStack.items
+this.$stack.full
+```
+
+or visit the scoped stack, which is bound to current component instance
+
+```javascript
+this.$stack.scoped
 ```
 
 # Typical use case
 
-defines routes with the dummy page, but has working pages in meta:
+defines routes as usual
 
 ```javascript
-const DummyPage = Vue.extend({
-    name: 'DummyPage',
-    render: c => c('div')
-})
 
 const routers = [
     {
         path: '/',
-        component: DummyPage,
-        meta: {
-            component : IndexPage
-        }
+        component: IndexPage
     },
     {
         path: '/foo',
-        component: DummyPage,
-        meta: {
-            component: FooPage
-        }
+        component: FooPage
     }
 ]
 ```
 
-then working pages stack can be rendered as:
+replace `<route-view>` tag with
+
 ```vue
 <component
-  v-for="item in $routerStack.items"
-  :key="item.fullPath"
-  :is="item.meta.component"
+  v-for="entry in $stack.scoped"
+  :key="entry.fullPath"
+  :is="entry.component"
 />
 ```
