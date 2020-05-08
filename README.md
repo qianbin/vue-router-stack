@@ -40,21 +40,29 @@ defines routes as usual
 const routers = [
     {
         path: '/',
-        component: IndexPage
-    },
-    {
-        path: '/foo',
-        component: FooPage
+        component: IndexPage,
+        children: [
+            {
+                path: '/foo',
+                component: FooPage
+            },
+            {
+                path: '/bar',
+                component: BarPage
+            }
+        ]
     }
 ]
 ```
 
-replace `<route-view>` tag with
+replace second level `<route-view>` tag with
 
-```vue
-<component
-  v-for="entry in $stack.scoped"
-  :key="entry.fullPath"
-  :is="entry.component"
-/>
+```html
+<router-view>
+    <component
+    v-for="entry in $stack.scoped"
+    :key="entry.fullPath"
+    :is="entry.component"
+    />
+</router-view>
 ```

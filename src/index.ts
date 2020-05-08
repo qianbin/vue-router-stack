@@ -24,7 +24,7 @@ export interface Entry extends Route {
 }
 
 export interface ScopedEntry extends Entry {
-    view: RouteRecord
+    record: RouteRecord
     component: Vue.Component
 }
 
@@ -33,15 +33,17 @@ export interface Stack {
     scoped: ScopedEntry[]
 }
 
-function getScopedView(instance: Vue, route: Route) {
-    while (instance) {
-        for (let i = 0; i < route.matched.length; i++) {
-            if (route.matched[i].instances.default === instance) {
-                return route.matched[i + 1]
+function getScopeRoot(vm: Vue, entries: Entry[]): [RouteRecord, number] | undefined {
+    while (vm) {
+        for (const e of entries) {
+            for (let i = 0; i < e.matched.length; i++) {
+                const m = e.matched[i]
+                if (vm === m.instances.default) {
+                    return [m, i]
+                }
             }
         }
-        // allow super parent as scope instance
-        instance = instance.$parent
+        vm = vm.$parent
     }
 }
 
@@ -57,20 +59,26 @@ export default function install(Vue: typeof _Vue, options?: Options) {
 
     Object.defineProperty(Vue.prototype, '$stack', {
         get(): Stack {
-            const instance = this
+            const vm = this
             return {
                 get full() { return stack.entries },
                 get scoped() {
-                    return stack.entries.map<ScopedEntry>(e => {
-                        const view = getScopedView(instance, e)
-                        return {
-                            ...e,
-                            get view() { return view! },
-                            get component() {
-                                return (view ? view.components.default : undefined) as Vue.Component
+                    const root = getScopeRoot(vm, stack.entries)
+                    if (!root) {
+                        return []
+                    }
+                    const [rootRec, rootIndex] = root
+                    return stack.entries
+                        .filter(e =>
+                            e.matched[rootIndex] === rootRec && e.matched[rootIndex + 1])
+                        .map<ScopedEntry>(e => {
+                            const rec = e.matched[rootIndex + 1]
+                            return {
+                                ...e,
+                                get record() { return rec },
+                                get component() { return rec.components.default as Vue.Component }
                             }
-                        }
-                    }).filter(e => !!e.view)
+                        })
                 }
             }
         }
