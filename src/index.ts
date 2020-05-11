@@ -68,9 +68,22 @@ export default function install(Vue: typeof _Vue, options?: Options) {
                         return []
                     }
                     const [rootRec, rootIndex] = root
-                    return stack.entries
-                        .filter(e =>
-                            e.matched[rootIndex] === rootRec && e.matched[rootIndex + 1])
+
+                    let reversed = stack.entries.map(e => e).reverse()
+                    const start = reversed.findIndex(e => e.matched[rootIndex] === rootRec && e.matched[rootIndex + 1])
+                    if (start < 0) {
+                        return []
+                    }
+
+
+                    reversed = reversed.slice(start)
+                    const end = reversed.findIndex(e => e.matched[rootIndex] !== rootRec || !e.matched[rootIndex + 1])
+                    if (end >= 0) {
+                        reversed = reversed.slice(0, end)
+                    }
+
+                    return reversed
+                        .reverse()
                         .map<ScopedEntry>(e => {
                             const rec = e.matched[rootIndex + 1]
                             return {
