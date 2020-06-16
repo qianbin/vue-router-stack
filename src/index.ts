@@ -47,6 +47,17 @@ function getScopeRoot(vm: Vue, entries: Entry[]): [RouteRecord, number] | undefi
     }
 }
 
+function eliminateUndefinedError(v: any) {
+    if (v instanceof Promise) {
+        return v.catch(err => {
+            if (err) {
+                throw err
+            }
+        })
+    }
+    return v
+}
+
 export default function install(Vue: typeof _Vue, options?: Options) {
     if (!options || !options.router) {
         throw new Error('invalid options')
@@ -99,9 +110,13 @@ export default function install(Vue: typeof _Vue, options?: Options) {
 
     let replacing = true
     const replaceFn = router.replace.bind(router)
+    const pushFn = router.push.bind(router)
     router.replace = <any>((loc: any, onComplete: any, onAbort: any) => {
         replacing = true
-        return replaceFn(loc, onComplete, onAbort)
+        return eliminateUndefinedError(replaceFn(loc, onComplete, onAbort))
+    })
+    router.push = <any>((loc: any, onComplete: any, onAbort: any) => {
+        return eliminateUndefinedError(pushFn(loc, onComplete, onAbort))
     })
 
     router.beforeEach((to, from, next) => {
