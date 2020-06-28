@@ -123,14 +123,22 @@ export default function install(Vue: typeof _Vue, options?: Options) {
         if (to.query[seqKey]) {
             return next()
         }
+        next(false)
         const query = { ...to.query }
         query[seqKey] = makeSeq()
-        next({
-            ...to,
+
+        const loc = {
             name: to.name || undefined,
-            query,
-            replace: replacing
-        })
+            path: to.path,
+            params: to.params,
+            hash: to.hash,
+            query
+        }
+        if (replacing) {
+            replaceFn(loc)
+        } else {
+            pushFn(loc)
+        }
     })
     router.afterEach((to, from) => {
         const seq = decodeSeq(to.query[seqKey] as string)
