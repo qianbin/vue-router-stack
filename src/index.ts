@@ -1,26 +1,12 @@
 import _Vue from 'vue'
 import Router, { Route, RouteRecord } from 'vue-router'
 
-const defaultSeqKey = 's~'
-function makeSeq() {
-    return Date.now().toString(16)
-}
-
-function decodeSeq(s: string) {
-    try {
-        return parseInt(s, 16)
-    } catch{
-        return 0
-    }
-}
-
 export type Options = {
     router: Router
-    seqKey?: string
 }
 
 export interface Entry extends Route {
-    seq: number
+    ts: number
 }
 
 export interface ScopedEntry extends Entry {
@@ -47,23 +33,14 @@ function getScopeRoot(vm: Vue, entries: Entry[]): [RouteRecord, number] | undefi
     }
 }
 
-function eliminateUndefinedError(v: any) {
-    if (v instanceof Promise) {
-        return v.catch(err => {
-            if (err) {
-                throw err
-            }
-        })
-    }
-    return v
+function overwriteState(data: any, ts: number) {
+    return { __ts: ts, ...(data || {}) }
 }
 
 export default function install(Vue: typeof _Vue, options?: Options) {
     if (!options || !options.router) {
         throw new Error('invalid options')
     }
-
-    const seqKey = options.seqKey || defaultSeqKey
 
     const router = options.router
     const stack = Vue.observable<{ entries: Entry[] }>({ entries: [] })
@@ -108,54 +85,50 @@ export default function install(Vue: typeof _Vue, options?: Options) {
         }
     })
 
-    let replacing = true
-    const replaceFn = router.replace.bind(router)
-    const pushFn = router.push.bind(router)
-    router.replace = <any>((loc: any, onComplete: any, onAbort: any) => {
-        replacing = true
-        return eliminateUndefinedError(replaceFn(loc, onComplete, onAbort))
-    })
-    router.push = <any>((loc: any, onComplete: any, onAbort: any) => {
-        return eliminateUndefinedError(pushFn(loc, onComplete, onAbort))
+    let tsForPush: number
+    const history = window.history
+
+    const pushStateFn = history.pushState.bind(history)
+    const replaceStateFn = history.replaceState.bind(history)
+
+    history.pushState = (data, title, url) => {
+        pushStateFn(overwriteState(
+            data,
+            tsForPush
+        ), title, url)
+    }
+    history.replaceState = (data, title, url) => {
+        replaceStateFn(overwriteState(
+            data,
+            tsForPush
+        ), title, url)
+    }
+
+    let popStateCalled = false
+    window.addEventListener('popstate', () => {
+        popStateCalled = true
     })
 
-    router.beforeEach((to, from, next) => {
-        if (to.query[seqKey]) {
-            return next()
-        }
-        next(false)
-        const query = { ...to.query }
-        query[seqKey] = makeSeq()
-
-        const loc = {
-            name: to.name || undefined,
-            path: to.path,
-            params: to.params,
-            hash: to.hash,
-            query
-        }
-        if (replacing) {
-            replaceFn(loc)
-        } else {
-            pushFn(loc)
-        }
-    })
+    // pushState/replaceState is called after afterEach 
+    // while popstate event is fired before afterEach
     router.afterEach((to, from) => {
-        const seq = decodeSeq(to.query[seqKey] as string)
+        let ts: number
+        if (popStateCalled) {
+            // back or forward, means history.state.__ts was set
+            ts = history.state.__ts
+            popStateCalled = false
+        } else {
+            ts = tsForPush = Date.now()
+        }
 
-        const i = stack.entries.findIndex(e => e.seq >= seq)
+        const i = stack.entries.findIndex(e => e.ts >= ts)
         if (i >= 0) {
             stack.entries.splice(i)
-        } else if (replacing) {
-            stack.entries.pop()
         }
         stack.entries.push({
             ...to,
-            seq
+            ts
         })
-
-        // 
-        replacing = false
     })
 }
 
