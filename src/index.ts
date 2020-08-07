@@ -7,6 +7,7 @@ export type Options = {
 
 export interface Entry extends Route {
     ts: number
+    depth: number
 }
 
 export interface ScopedEntry extends Entry {
@@ -31,10 +32,6 @@ function getScopeRoot(vm: Vue, entries: Entry[]): [RouteRecord, number] | undefi
         }
         vm = vm.$parent
     }
-}
-
-function overwriteState(data: any, ts: number) {
-    return { __ts: ts, ...(data || {}) }
 }
 
 export default function install(Vue: typeof _Vue, options?: Options) {
@@ -85,50 +82,43 @@ export default function install(Vue: typeof _Vue, options?: Options) {
         }
     })
 
-    let tsForPush: number
     const history = window.history
 
     const pushStateFn = history.pushState.bind(history)
     const replaceStateFn = history.replaceState.bind(history)
 
     history.pushState = (data, title, url) => {
-        pushStateFn(overwriteState(
-            data,
-            tsForPush
-        ), title, url)
+        pushStateFn({
+            __ts: Date.now(),
+            __depth: ((history.state || {}).__depth || 0) + 1,
+            ...(data || {})
+        }, title, url)
     }
     history.replaceState = (data, title, url) => {
-        replaceStateFn(overwriteState(
-            data,
-            tsForPush
-        ), title, url)
+        replaceStateFn({
+            __ts: Date.now(),
+            __depth: (history.state || {}).__depth || 0,
+            ...(data || {})
+        }, title, url)
     }
 
-    let popStateCalled = false
-    window.addEventListener('popstate', () => {
-        popStateCalled = true
-    })
-
-    // pushState/replaceState is called after afterEach 
-    // while popstate event is fired before afterEach
     router.afterEach((to, from) => {
-        let ts: number
-        if (popStateCalled) {
-            // back or forward, means history.state.__ts was set
-            ts = history.state.__ts
-            popStateCalled = false
-        } else {
-            ts = tsForPush = Date.now()
-        }
-
-        const i = stack.entries.findIndex(e => e.ts >= ts)
-        if (i >= 0) {
-            stack.entries.splice(i)
-        }
-        stack.entries.push({
-            ...to,
-            ts
-        })
+        // pushState/replaceState is called after afterEach, 
+        // use setTimeout to wait for them
+        setTimeout(() => {
+            const state = history.state || {}
+            const ts = state.__ts
+            const depth = state.__depth
+            const i = stack.entries.findIndex(e => e.ts >= ts)
+            if (i >= 0) {
+                stack.entries.splice(i)
+            }
+            stack.entries.push({
+                ...to,
+                ts,
+                depth
+            })
+        }, 0)
     })
 }
 
