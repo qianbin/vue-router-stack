@@ -16,8 +16,9 @@ export interface ScopedEntry extends Entry {
 }
 
 export interface Stack {
-    full: Entry[]
-    scoped: ScopedEntry[]
+    readonly canGoBack: boolean
+    readonly full: Entry[]
+    readonly scoped: ScopedEntry[]
 }
 
 function getScopeRoot(vm: Vue, entries: Entry[]): [RouteRecord, number] | undefined {
@@ -46,6 +47,12 @@ export default function install(Vue: typeof _Vue, options?: Options) {
         get(): Stack {
             const vm = this
             return {
+                get canGoBack() {
+                    if (stack.entries.length > 0) {
+                        return stack.entries[stack.entries.length - 1].depth > 0
+                    }
+                    return false
+                },
                 get full() { return stack.entries },
                 get scoped() {
                     const root = getScopeRoot(vm, stack.entries)
@@ -101,6 +108,15 @@ export default function install(Vue: typeof _Vue, options?: Options) {
             ...(data || {})
         }, title, url)
     }
+    // for the case manually input url to navigate
+    window.addEventListener('popstate', ev => {
+        const data = ev.state || {}
+        replaceStateFn({
+            __ts: Date.now(),
+            __depth: ((history.state || {}).__depth || 0) + 1,
+            ...(data || {})
+        }, '')
+    })
 
     router.afterEach((to, from) => {
         // pushState/replaceState is called after afterEach, 
