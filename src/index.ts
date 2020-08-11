@@ -6,7 +6,6 @@ export type Options = {
 }
 
 export interface Entry extends Route {
-    ts: number
     depth: number
 }
 
@@ -96,14 +95,12 @@ export default function install(Vue: typeof _Vue, options?: Options) {
 
     history.pushState = (data, title, url) => {
         pushStateFn({
-            __ts: Date.now(),
             __depth: ((history.state || {}).__depth || 0) + 1,
             ...(data || {})
         }, title, url)
     }
     history.replaceState = (data, title, url) => {
         replaceStateFn({
-            __ts: Date.now(),
             __depth: (history.state || {}).__depth || 0,
             ...(data || {})
         }, title, url)
@@ -112,7 +109,6 @@ export default function install(Vue: typeof _Vue, options?: Options) {
     window.addEventListener('popstate', ev => {
         const data = ev.state || {}
         replaceStateFn({
-            __ts: Date.now(),
             __depth: ((history.state || {}).__depth || 0) + 1,
             ...(data || {})
         }, '')
@@ -123,15 +119,13 @@ export default function install(Vue: typeof _Vue, options?: Options) {
         // use setTimeout to wait for them
         setTimeout(() => {
             const state = history.state || {}
-            const ts = state.__ts
             const depth = state.__depth
-            const i = stack.entries.findIndex(e => e.ts >= ts)
+            const i = stack.entries.findIndex(e => e.depth >= depth)
             if (i >= 0) {
                 stack.entries.splice(i)
             }
             stack.entries.push({
                 ...to,
-                ts,
                 depth
             })
         }, 0)
