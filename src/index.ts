@@ -89,29 +89,37 @@ export default function install(Vue: typeof _Vue, options?: Options) {
     })
 
     const history = window.history
-
+    let depth = (history.state || {}).__depth || 0
     const pushStateFn = history.pushState.bind(history)
     const replaceStateFn = history.replaceState.bind(history)
 
     history.pushState = (data, title, url) => {
+        data = data || {}
+        depth++
         pushStateFn({
-            __depth: ((history.state || {}).__depth || 0) + 1,
-            ...(data || {})
+            __depth: depth,
+            ...data
         }, title, url)
     }
     history.replaceState = (data, title, url) => {
+        data = data || {}
         replaceStateFn({
-            __depth: (history.state || {}).__depth || 0,
-            ...(data || {})
+            __depth: depth,
+            ...data
         }, title, url)
     }
     // for the case manually input url to navigate
-    window.addEventListener('popstate', ev => {
-        const data = ev.state || {}
-        replaceStateFn({
-            __depth: ((history.state || {}).__depth || 0) + 1,
-            ...(data || {})
-        }, '')
+    window.addEventListener('popstate', () => {
+        const data = history.state || {}
+        if (typeof data.__depth === 'number') {
+            depth = data.__depth
+        } else {
+            depth++
+            replaceStateFn({
+                __depth: depth,
+                ...data
+            }, '')
+        }
     })
 
     router.afterEach((to, from) => {
