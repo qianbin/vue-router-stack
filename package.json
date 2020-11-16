@@ -1,12 +1,12 @@
 {
   "name": "vue-router-stack",
-  "version": "1.3.0",
+  "version": "1.3.2",
   "description": "",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
   "scripts": {
     "build": "rm -rf dist/;tsc -p .",
-    "prepare": "npm run build",
+    "prepack": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
